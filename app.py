@@ -5,6 +5,7 @@ from twilio.rest import Client
 import os
 from dotenv import load_dotenv
 from flask_mail import Mail, Message
+from threading import Thread
 
 load_dotenv()
 
@@ -37,6 +38,15 @@ def send_email(subject, body, to_email):
     """Send email using Flask-Mail"""
     msg = Message(subject=subject, recipients=[to_email], body=body)
     mail.send(msg)
+
+def async_send_email(subject, body, to_email):
+    def task():
+        try:
+            with app.app_context():  # 👈 ensures Flask-Mail has context
+                send_email(subject, body, to_email)
+        except Exception as e:
+            print("Email send failed:", e)
+    Thread(target=task).start()
 
 @app.route('/', methods=['POST'])
 def whatsapp_bot():
@@ -100,11 +110,7 @@ def whatsapp_bot():
         📂 Case Type: {session['case_type']} 
         🕒 Preferred Time: {session['time']} """
 
-        send_email(
-            subject="New Client Inquiry",
-            body=summary,
-            to_email=LAWYER_EMAIL
-        )
+        async_send_email("New Client Inquiry", summary, LAWYER_EMAIL)
 
         user_sessions.pop(sender, None)
 
