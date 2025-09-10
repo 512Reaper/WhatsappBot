@@ -4,41 +4,39 @@ from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
 import os
 from dotenv import load_dotenv
-import smtplib
-from email.mime.text import MIMEText
+from flask_mail import Mail, Message
 
 load_dotenv()
 
 app = Flask(__name__)
 
-
-
+# -------------------- Twilio Config --------------------
 account_sid = os.getenv('account_sid')
 auth_token = os.getenv('auth_token')
 twilio_number = os.getenv('twilio_number')
 lawyer_whatsapp = os.getenv('lawyer_whatsapp')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+
+# -------------------- Mail Config --------------------
+app.config['MAIL_SERVER'] = os.getenv('EMAIL_HOST')
+app.config['MAIL_PORT'] = int(os.getenv('EMAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('EMAIL_ADDRESS')
+app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('EMAIL_ADDRESS')
+
+mail = Mail(app)
+
 LAWYER_EMAIL = os.getenv('LAWYER_EMAIL')
-
-def send_email(subject, body, to_email):
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = to_email
-
-    with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
-        server.starttls()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_ADDRESS, to_email, msg.as_string())
-
 
 client = Client(account_sid, auth_token)
 
 # Store user sessions (basic dict for demo; use DB in production)
 user_sessions = {}
+
+def send_email(subject, body, to_email):
+    """Send email using Flask-Mail"""
+    msg = Message(subject=subject, recipients=[to_email], body=body)
+    mail.send(msg)
 
 @app.route('/', methods=['POST'])
 def whatsapp_bot():
@@ -58,17 +56,15 @@ def whatsapp_bot():
         msg.body("Thanks! 📞 Can you provide your *phone number*?")
         session['stage'] = 'get_phone'
 
-
     elif session['stage'] == 'get_phone':
         phone = incoming_msg
-        # ✅ Validate if it's exactly 10 digits
         if re.fullmatch(r'\d{10}', phone):
             session['phone'] = phone
             msg.body("Great! 📍 What *location* are you contacting us from?")
             session['stage'] = 'get_location'
         else:
             msg.body("❌ Please enter a valid 10-digit phone number (e.g., 9876543210).")
-            session['stage'] = 'get_phone'  # Stay in the same stage
+            session['stage'] = 'get_phone'
 
     elif session['stage'] == 'get_location':
         session['location'] = incoming_msg.title()
@@ -95,7 +91,7 @@ def whatsapp_bot():
         session['time'] = incoming_msg
         msg.body("✅ Thank you for providing the details. Our team will get back to you shortly.")
 
-        # Send collected info to lawyer
+        # Send collected info to lawyer via email
         summary = f""" 
         📨 *New Client Inquiry* 
         👤 Name: {session['name']} 
