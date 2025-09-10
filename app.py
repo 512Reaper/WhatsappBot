@@ -118,5 +118,15 @@ def whatsapp_bot():
     return str(resp)
 
 
+@app.route('/test-mail')
+def test_mail():
+    try:
+        with app.app_context():
+            send_email("Test Email", "Hello, this is a test!", LAWYER_EMAIL)
+        return "✅ Test email sent!"
+    except Exception as e:
+        return f"❌ Failed: {e}"
+
+
 if __name__ == '__main__':
     app.run()
