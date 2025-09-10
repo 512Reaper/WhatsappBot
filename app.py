@@ -104,11 +104,6 @@ def whatsapp_bot():
         📂 Case Type: {session['case_type']} 
         🕒 Preferred Time: {session['time']} """
 
-        client.messages.create(
-            from_=twilio_number,
-            to=lawyer_whatsapp,
-            body=summary
-        )
         send_email(
             subject="New Client Inquiry",
             body=summary,
